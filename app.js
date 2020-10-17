@@ -25,6 +25,7 @@ function originIsAllowed(origin) {
     return true;
 }
 
+const connections = new Set();;
 wsServer.on('request', function (request) {
     if (!originIsAllowed(request.origin)) {
         // Make sure we only accept requests from an allowed origin
@@ -33,20 +34,29 @@ wsServer.on('request', function (request) {
         return;
     }
 
+    // keep track of connections
     var connection = request.accept('echo-protocol', request.origin);
+    connections.add(connection);
     console.log((new Date()) + ' Connection accepted.');
+
     connection.on('message', function (message) {
         if (message.type === 'utf8') {
             console.log('Received Message: ' + message.utf8Data);
-            connection.sendUTF(message.utf8Data);
+
+            connections.forEach((conn) => {
+                conn.sendUTF(message.utf8Data);
+            })
         }
         else if (message.type === 'binary') {
             console.log('Received Binary Message of ' + message.binaryData.length + ' bytes with value: ' + (message.binaryData[0] >>> 0).toString(2));
 
-            connection.sendBytes(message.binaryData);
+            connections.forEach((conn) => {
+                conn.sendBytes(message.binaryData);
+            })
         }
     });
     connection.on('close', function (reasonCode, description) {
+        connections.delete(connection)
         console.log((new Date()) + ' Peer ' + connection.remoteAddress + ' disconnected.');
     });
 });
